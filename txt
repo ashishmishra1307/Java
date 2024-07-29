@@ -1,0 +1,54 @@
+# Function to build the app
+build_app() {
+  cd "$BASE_DIR/spring-petclinic"
+  echo "Building the app with profile: $PROFILE..."
+
+  if [ "$PROFILE" == "default" ]; then
+    ./mvnw clean package -DskipTests
+    cp target/*.jar "$BASE_DIR/outputs/petclinic-default.jar"
+  elif [ "$PROFILE" == "mysql" ]; then
+    ./mvnw clean package -DskipTests -Dspring.datasource.url=jdbc:mysql://localhost:3306/petclinic -Dspring.datasource.username=$USERNAME -Dspring.datasource.password=$PASSWORD
+    cp target/*.jar "$BASE_DIR/outputs/petclinic-mysql.jar"
+  else
+    echo "Invalid profile specified!"
+    exit 1
+  fi
+  cd "$BASE_DIR"
+}
+
+# Function to download and unzip MySQL binaries
+setup_mysql() {
+  MYSQL_ZIP="$BASE_DIR/required_files/mysql.zip"
+
+  if [ ! -f "$MYSQL_ZIP" ]; then
+    echo "Downloading MySQL binary..."
+    curl -L $MYSQL_ZIP_URL -o "$MYSQL_ZIP"
+  else
+    echo "MySQL binary already downloaded."
+  fi
+
+  echo "Unzipping MySQL binary..."
+  unzip -o $MYSQL_ZIP -d "$BASE_DIR/mysql/"
+}
+
+# Function to run the app with the specified profile and agent
+run_app() {
+  echo "Running the app..."
+  if [ "$PROFILE" == "default" ]; then
+    java -javaagent:$JAVA_AGENT_JAR -jar $BASE_DIR/outputs/petclinic-default.jar
+  elif [ "$PROFILE" == "mysql" ]; then
+    java -javaagent:$JAVA_AGENT_JAR -jar $BASE_DIR/outputs/petclinic-mysql.jar
+  else
+    echo "Invalid profile specified!"
+    exit 1
+  fi
+}
+
+# Main script execution
+echo "Starting script execution..."
+cp -r "$BASE_DIR/required_files/"* "$BASE_DIR/backups/"
+get_petclinic_app
+remove_docker_files
+build_app
+setup_mysql
+run_app
